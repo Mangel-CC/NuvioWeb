@@ -62,7 +62,9 @@ function toEpisodeEntry(video = {}) {
     episode,
     thumbnail: video.thumbnail || null,
     overview: video.overview || video.description || "",
-    runtimeMinutes: Number.isFinite(runtimeMinutes) && runtimeMinutes > 0 ? runtimeMinutes : 0
+    runtimeMinutes: Number.isFinite(runtimeMinutes) && runtimeMinutes > 0 ? runtimeMinutes : 0,
+    released: video.released || video.releaseDate || video.release_date || video.firstAired || video.first_aired || video.airDate || video.air_date || "",
+    available: video.available
   };
 }
 
