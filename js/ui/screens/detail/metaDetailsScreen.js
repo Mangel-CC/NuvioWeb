@@ -64,7 +64,8 @@ function toEpisodeEntry(video = {}) {
     overview: video.overview || video.description || "",
     runtimeMinutes: Number.isFinite(runtimeMinutes) && runtimeMinutes > 0 ? runtimeMinutes : 0,
     released: video.released || video.releaseDate || video.release_date || video.firstAired || video.first_aired || video.airDate || video.air_date || "",
-    available: video.available
+    available: video.available,
+    imdbRating: video.imdbRating ?? video.imdb_score ?? video.ratings?.imdb ?? video.mdbListRatings?.imdb ?? null
   };
 }
 
@@ -385,6 +386,19 @@ function resolveImdbRating(meta = {}) {
   }
   if (meta?.mdbListRatings?.imdb != null && String(meta.mdbListRatings.imdb).trim() !== "") {
     return meta.mdbListRatings.imdb;
+  }
+  return null;
+}
+
+function resolveEpisodeImdbRating(episode = {}, seriesRatingsBySeason = {}) {
+  const seasonRating = seriesRatingsBySeason?.[episode.season]
+    ?.find((entry) => Number(entry?.episode || 0) === Number(episode.episode || 0))
+    ?.rating;
+  if (seasonRating != null && String(seasonRating).trim() !== "") {
+    return seasonRating;
+  }
+  if (episode?.imdbRating != null && String(episode.imdbRating).trim() !== "") {
+    return episode.imdbRating;
   }
   return null;
 }
@@ -2455,7 +2469,7 @@ export const MetaDetailsScreen = {
       const duration = Number(progress?.durationMs || 0);
       const progressRatio = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
       const isWatched = this.watchedEpisodeKeys.has(`${episode.season}:${episode.episode}`);
-      const rating = this.seriesRatingsBySeason?.[episode.season]?.find((entry) => Number(entry?.episode || 0) === Number(episode.episode || 0))?.rating ?? null;
+      const rating = resolveEpisodeImdbRating(episode, this.seriesRatingsBySeason);
       const dateLabel = formatEpisodeCardDate(episode.released || "");
       const isUnavailable = episode.available === false;
       const metaParts = [

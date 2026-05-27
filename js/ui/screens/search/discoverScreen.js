@@ -1143,8 +1143,12 @@ export const DiscoverScreen = {
     this.container.__discoverPointerBound = true;
 
     this.container.addEventListener("click", (event) => {
+      const isKeyboardClick = Number(event?.detail || 0) === 0;
       const optionNode = event.target?.closest?.(".library-picker-option");
       if (optionNode && this.openPicker) {
+        if (isKeyboardClick) {
+          return;
+        }
         const optionIndex = Number(optionNode.dataset.optionIndex || -1);
         if (optionIndex >= 0) {
           this.pickerOptionIndex = optionIndex;
@@ -1155,6 +1159,9 @@ export const DiscoverScreen = {
 
       const filterNode = event.target?.closest?.(".discover-filter");
       if (filterNode) {
+        if (isKeyboardClick) {
+          return;
+        }
         const action = String(filterNode.dataset.action || "");
         this.focusFilter(action);
         if (action === "discoverFilterType") this.openPickerMenu("type");
