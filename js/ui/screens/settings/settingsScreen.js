@@ -216,7 +216,6 @@ const AVAILABLE_SUBTITLE_LANGUAGES = [
 
 const PREFERRED_SUBTITLE_LANGUAGE_OPTIONS = [
   { id: "off", label: "Off" },
-  { id: "forced", label: "Forced" },
   ...AVAILABLE_SUBTITLE_LANGUAGES
 ];
 
@@ -589,7 +588,7 @@ async function validateDebridApiKey(providerId, apiKey) {
 function normalizeSelectableSubtitleLanguageCode(language) {
   const code = String(language ?? "").trim().toLowerCase();
   if (!code) {
-    return "system";
+    return "off";
   }
   switch (code) {
     case "pt-br":
@@ -620,7 +619,7 @@ function labelForSubtitlePlaybackLanguage(language) {
     normalized === "off"
       ? "Off"
       : normalized === "forced"
-        ? "Forced"
+        ? t("settings.playback.useForcedSubtitles.title", {}, "Use forced subtitles")
         : normalized === "system"
           ? t("common.system")
           : String(language || "system")
@@ -631,9 +630,6 @@ function subtitleLanguageOptionCode(option) {
   const normalized = normalizeSelectableSubtitleLanguageCode(option?.id);
   if (!normalized || normalized === "off") {
     return "";
-  }
-  if (normalized === "forced") {
-    return "FORCED";
   }
   return normalized.toUpperCase();
 }
@@ -2896,6 +2892,15 @@ export const SettingsScreen = {
     this.actionMap.set("playback:subtitlesEnabled", () => {
       PlayerSettingsStore.set({ subtitlesEnabled: !PlayerSettingsStore.get().subtitlesEnabled });
     });
+    this.actionMap.set("playback:useForcedSubtitles", () => {
+      const currentSettings = PlayerSettingsStore.get();
+      PlayerSettingsStore.set({
+        subtitleStyle: {
+          ...currentSettings.subtitleStyle,
+          useForcedSubtitles: !Boolean(currentSettings.subtitleStyle?.useForcedSubtitles)
+        }
+      });
+    });
     this.actionMap.set("playback:subtitleLanguage", () => {
       const currentSettings = PlayerSettingsStore.get();
       const currentLanguage = normalizeSelectableSubtitleLanguageCode(currentSettings.subtitleStyle?.preferredLanguage || currentSettings.subtitleLanguage);
@@ -2980,6 +2985,12 @@ export const SettingsScreen = {
       title: t("settings.playback.subtitleLanguage.title"),
       subtitle: t("settings.playback.subtitleLanguage.subtitle"),
       value: labelForSubtitlePlaybackLanguage(model.player.subtitleLanguage)
+    })}
+        ${this.renderToggleRow({
+      focusKey: "playback:useForcedSubtitles",
+      title: t("settings.playback.useForcedSubtitles.title", {}, "Use forced subtitles"),
+      subtitle: t("settings.playback.useForcedSubtitles.subtitle", {}, "Prefer forced subtitles when the audio matches the selected subtitle language."),
+      checked: Boolean(model.player.subtitleStyle?.useForcedSubtitles)
     })}
         ${this.renderActionRow({
       focusKey: "playback:renderMode",

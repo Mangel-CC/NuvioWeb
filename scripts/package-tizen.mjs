@@ -12,8 +12,8 @@ const cacheDir = path.join(rootDir, ".cache");
 const stagingDir = path.join(cacheDir, "tizen-package");
 
 const appName = "Nuvio TV";
-const defaultTizenPackageId = "NuvioTV";
-const defaultTizenAppId = "NuvioTV.NuvioTV";
+const defaultTizenPackageId = "NuvioTV001";
+const defaultTizenAppId = "NuvioTV001.NuvioTV";
 const defaultWidgetUri = "https://nuvio.tv";
 
 function normalizeVersion(version) {

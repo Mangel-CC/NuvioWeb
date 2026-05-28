@@ -8,7 +8,10 @@ import { TmdbSettingsStore } from "../../data/local/tmdbSettingsStore.js";
 import { MdbListSettingsStore } from "../../data/local/mdbListSettingsStore.js";
 import { TraktSettingsStore, normalizeTraktContinueWatchingDaysCap } from "../../data/local/traktSettingsStore.js";
 import { AnimeSkipSettingsStore } from "../../data/local/animeSkipSettingsStore.js";
-import { DebridSettingsStore } from "../../data/local/debridSettingsStore.js";
+import {
+  ANDROID_DEBRID_STREAM_DESCRIPTION_TEMPLATE,
+  DebridSettingsStore
+} from "../../data/local/debridSettingsStore.js";
 import { ProfileManager } from "./profileManager.js";
 import {
   clearProfileSettingsCloudSyncPending,
@@ -215,10 +218,36 @@ function normalizePreferredSubtitleLanguageForAndroid(settings = {}) {
     settings.subtitleStyle?.preferredLanguage ?? settings.subtitleLanguage,
     "off"
   );
-  if (normalized === "off" && settings.subtitlesEnabled !== false) {
-    return "forced";
+  if (normalized === "forced") {
+    const secondary = normalizeSubtitleLanguage(
+      settings.subtitleStyle?.secondaryPreferredLanguage ?? settings.secondarySubtitleLanguage,
+      "off"
+    );
+    return secondary && secondary !== "off" && secondary !== "forced" ? secondary : "en";
   }
-  return normalized;
+  return normalized === "off" ? "none" : normalized;
+}
+
+function normalizeSecondarySubtitleLanguageForAndroid(settings = {}) {
+  const normalized = normalizeSubtitleLanguage(
+    settings.subtitleStyle?.secondaryPreferredLanguage ?? settings.secondarySubtitleLanguage,
+    "off"
+  );
+  return normalized === "forced" || normalized === "off" ? "none" : normalized;
+}
+
+function shouldUseForcedSubtitlesForAndroid(settings = {}) {
+  const preferred = normalizeSubtitleLanguage(
+    settings.subtitleStyle?.preferredLanguage ?? settings.subtitleLanguage,
+    "off"
+  );
+  const secondary = normalizeSubtitleLanguage(
+    settings.subtitleStyle?.secondaryPreferredLanguage ?? settings.secondarySubtitleLanguage,
+    "off"
+  );
+  return Boolean(settings.subtitleStyle?.useForcedSubtitles || settings.useForcedSubtitles)
+    || preferred === "forced"
+    || secondary === "forced";
 }
 
 function normalizeAudioLanguageForAndroid(value) {
@@ -600,7 +629,8 @@ const FEATURE_ADAPTERS = {
       return {
         preferred_audio_language: normalizeAudioLanguageForAndroid(settings.preferredAudioLanguage),
         subtitle_preferred_language: normalizePreferredSubtitleLanguageForAndroid(settings),
-        subtitle_secondary_language: normalizeSubtitleLanguage(settings.subtitleStyle?.secondaryPreferredLanguage ?? settings.secondarySubtitleLanguage, "off"),
+        subtitle_secondary_language: normalizeSecondarySubtitleLanguageForAndroid(settings),
+        subtitle_use_forced_subtitles: shouldUseForcedSubtitlesForAndroid(settings),
         subtitle_size: Math.max(50, Math.trunc(Number(settings.subtitleStyle?.fontSize ?? 100) || 100)),
         subtitle_vertical_offset: Math.trunc(Number(settings.subtitleStyle?.verticalOffset ?? 0) || 0),
         subtitle_bold: Boolean(settings.subtitleStyle?.bold),
@@ -627,6 +657,7 @@ const FEATURE_ADAPTERS = {
       }
       [
         "subtitle_bold",
+        "subtitle_use_forced_subtitles",
         "subtitle_outline_enabled",
         "persist_audio_amplification",
         "skip_intro_enabled",
@@ -654,12 +685,25 @@ const FEATURE_ADAPTERS = {
       const partial = {};
       const subtitleStyle = {};
       const preferredAudioLanguage = normalizeAudioLanguageForWeb(raw.preferred_audio_language);
-      const subtitleLanguage = stringOrNull(raw.subtitle_preferred_language)
+      let subtitleLanguage = stringOrNull(raw.subtitle_preferred_language)
         ? normalizeSubtitleLanguage(raw.subtitle_preferred_language, "off")
         : null;
-      const secondarySubtitleLanguage = stringOrNull(raw.subtitle_secondary_language)
+      let secondarySubtitleLanguage = stringOrNull(raw.subtitle_secondary_language)
         ? normalizeSubtitleLanguage(raw.subtitle_secondary_language, "off")
         : null;
+      let useForcedSubtitles = booleanOrNull(raw.subtitle_use_forced_subtitles);
+
+      if (subtitleLanguage === "forced") {
+        useForcedSubtitles = true;
+        subtitleLanguage = secondarySubtitleLanguage && secondarySubtitleLanguage !== "forced" && secondarySubtitleLanguage !== "off"
+          ? secondarySubtitleLanguage
+          : "en";
+        secondarySubtitleLanguage = "off";
+      }
+      if (secondarySubtitleLanguage === "forced") {
+        useForcedSubtitles = true;
+        secondarySubtitleLanguage = "off";
+      }
 
       if (preferredAudioLanguage) {
         partial.preferredAudioLanguage = preferredAudioLanguage;
@@ -672,6 +716,9 @@ const FEATURE_ADAPTERS = {
       if (secondarySubtitleLanguage) {
         partial.secondarySubtitleLanguage = secondarySubtitleLanguage;
         subtitleStyle.secondaryPreferredLanguage = secondarySubtitleLanguage;
+      }
+      if (useForcedSubtitles != null) {
+        subtitleStyle.useForcedSubtitles = Boolean(useForcedSubtitles);
       }
       if (numberOrNull(raw.subtitle_size) != null) {
         subtitleStyle.fontSize = Math.max(50, Math.trunc(Number(raw.subtitle_size)));
@@ -931,7 +978,7 @@ const FEATURE_ADAPTERS = {
         stream_codec_filter: String(settings.streamCodecFilter || "ANY").toUpperCase(),
         stream_preferences: settings.streamPreferences ? JSON.stringify(settings.streamPreferences) : "",
         debrid_stream_name_template: String(settings.streamNameTemplate || ""),
-        debrid_stream_description_template: String(settings.streamDescriptionTemplate || "")
+        debrid_stream_description_template: String(settings.streamDescriptionTemplate || ANDROID_DEBRID_STREAM_DESCRIPTION_TEMPLATE)
       };
     },
     project(rawFeature = {}) {

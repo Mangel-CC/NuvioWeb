@@ -21,6 +21,7 @@ import { AuthManager } from "./core/auth/authManager.js";
 import { AuthState } from "./core/auth/authState.js";
 import { ProfileManager } from "./core/profile/profileManager.js";
 import { ProfileSyncService } from "./core/profile/profileSyncService.js";
+import { ProfileSettingsSyncService } from "./core/profile/profileSettingsSyncService.js";
 import { StartupSyncService } from "./core/profile/startupSyncService.js";
 import { ThemeManager } from "./ui/theme/themeManager.js";
 import { renderAppShell } from "./bootstrap/renderAppShell.js";
@@ -111,6 +112,7 @@ async function routeAfterAuthentication() {
   const activeProfile = profiles.find((profile) => String(profile.id) === String(activeProfileId)) || profiles[0] || null;
   if (activeProfile) {
     await ProfileManager.setActiveProfile(activeProfile.id);
+    await ProfileSettingsSyncService.pull(activeProfile.id);
   }
   Router.navigate("home");
 }

@@ -15,8 +15,7 @@
     "serve": "node ./scripts/serve.mjs",
     "sync": "node ./scripts/sync-wrapper.mjs",
     "sync:tizen": "node ./scripts/sync-wrapper.mjs --tizen",
-    "sync:webos": "node ./scripts/sync-wrapper.mjs --webos",
-    "sync:tizenbrew": "node ./scripts/sync-tizenbrew.mjs"
+    "sync:webos": "node ./scripts/sync-wrapper.mjs --webos"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

@@ -1,6 +1,7 @@
 import { Router } from "../../ui/navigation/router.js";
 import { ProfileManager } from "../../core/profile/profileManager.js";
 import { ProfileSyncService } from "../../core/profile/profileSyncService.js";
+import { ProfileSettingsSyncService } from "../../core/profile/profileSettingsSyncService.js";
 import { StartupSyncService } from "../../core/profile/startupSyncService.js";
 import { ScreenUtils } from "../../ui/navigation/screen.js";
 import { AvatarRepository } from "../../data/remote/supabase/avatarRepository.js";
@@ -1726,6 +1727,7 @@ export const ProfileSelectionScreen = {
       return;
     }
     await ProfileManager.setActiveProfile(profileId);
+    await ProfileSettingsSyncService.pull(profileId);
     StartupSyncService.syncPull().catch((error) => {
       console.warn("Profile startup sync failed", error);
     });
