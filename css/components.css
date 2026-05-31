@@ -13613,6 +13613,7 @@ button:focus-visible {
   animation: none !important;
 }
 
+.performance-constrained .nuvio-route-slide-enter,
 .performance-constrained .home-route-content-enter,
 .performance-constrained .addons-route-enter,
 .performance-constrained .search-route-enter,

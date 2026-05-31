@@ -6638,6 +6638,11 @@ export const HomeScreen = {
       `;
     }
 
+    const routeEnterClass = this.homeRouteEnterPending
+      ? (this.pendingCollectionRouteReturnAnimation ? " nuvio-route-slide-enter" : " home-route-content-enter")
+      : "";
+    this.pendingCollectionRouteReturnAnimation = false;
+
     this.container.innerHTML = `
       <div class="home-shell home-screen-shell ${layoutClass}"${sizingStyle ? ` style="${escapeAttribute(sizingStyle)}"` : ""}>
         ${renderRootSidebar({
@@ -6649,7 +6654,7 @@ export const HomeScreen = {
     })}
 
         <main class="home-main home-screen-main">
-          <div class="home-route-content${this.homeRouteEnterPending ? " home-route-content-enter" : ""}">
+          <div class="home-route-content${routeEnterClass}">
             ${mainContentMarkup}
           </div>
         </main>

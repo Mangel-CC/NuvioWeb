@@ -512,6 +512,7 @@ export const FolderDetailScreen = {
     this.tabs = [];
     this.viewMode = String(this.collection?.viewMode || "TABBED_GRID").toUpperCase();
     this.useHomeFollowLayout = this.viewMode === "FOLLOW_LAYOUT";
+    this.folderRouteEnterPending = true;
     this.heroItem = null;
 
     if (!this.collection || !this.folder) {
@@ -791,6 +792,8 @@ export const FolderDetailScreen = {
       this.renderFollowLayout();
       return;
     }
+    const enterClass = this.folderRouteEnterPending ? " nuvio-route-slide-enter" : "";
+    this.folderRouteEnterPending = false;
     const sourceRows = this.viewMode === "TABBED_GRID"
       ? (this.sourceTabs || [])
       : this.tabs.filter((tab) => !tab.isAllTab);
@@ -861,7 +864,7 @@ export const FolderDetailScreen = {
 
     this.container.innerHTML = this.viewMode === "TABBED_GRID"
       ? `
-          <div class="seeall-shell folder-detail-shell">
+          <div class="seeall-shell folder-detail-shell${enterClass}">
           <header class="seeall-header folder-detail-header">
             <div class="folder-detail-eyebrow">${escapeHtml(this.collection?.title || "Collection")}</div>
             <h2 class="seeall-title">${escapeHtml(this.folder?.title || "Folder")}</h2>
@@ -912,6 +915,8 @@ export const FolderDetailScreen = {
     HomeScreen.cancelModernCameraFollow.call(this, { stopAnimations: true });
     HomeScreen.teardownModernTrackScrollPagination.call(this);
     HomeScreen.cancelFocusedPosterFlow.call(this);
+    const enterClass = this.folderRouteEnterPending ? " nuvio-route-slide-enter" : "";
+    this.folderRouteEnterPending = false;
     this.expandedPosterNode = null;
     this.rows = buildFolderSourceRows(this.tabs || []);
     const modernLandscapePostersEnabled = Boolean(this.layoutPrefs?.modernLandscapePostersEnabled);
@@ -946,7 +951,7 @@ export const FolderDetailScreen = {
     this.container.innerHTML = `
       <div class="home-shell home-screen-shell home-layout-modern${modernLandscapePostersEnabled ? " home-modern-landscape-posters" : ""} folder-detail-home-shell" style="${escapeAttribute(sizingStyle)}">
         <main class="home-main home-screen-main">
-          <div class="home-route-content">
+          <div class="home-route-content${enterClass}">
             ${payload.markup}
           </div>
         </main>
@@ -1191,6 +1196,7 @@ export const FolderDetailScreen = {
         }
         return;
       }
+      this.prepareHomeReturnAnimation();
       Router.back();
       return;
     }
@@ -1274,18 +1280,22 @@ export const FolderDetailScreen = {
     }
   },
 
+  prepareHomeReturnAnimation() {
+    HomeScreen.pendingCollectionRouteReturnAnimation = true;
+  },
+
   consumeBackRequest() {
-    if (!this.useHomeFollowLayout) {
-      return false;
+    if (this.useHomeFollowLayout) {
+      if (this.continueWatchingMenu) {
+        HomeScreen.closeContinueWatchingMenu.call(this);
+        return true;
+      }
+      if (this.posterHoldMenu) {
+        HomeScreen.closePosterHoldMenu.call(this);
+        return true;
+      }
     }
-    if (this.continueWatchingMenu) {
-      HomeScreen.closeContinueWatchingMenu.call(this);
-      return true;
-    }
-    if (this.posterHoldMenu) {
-      HomeScreen.closePosterHoldMenu.call(this);
-      return true;
-    }
+    this.prepareHomeReturnAnimation();
     return false;
   },
 
