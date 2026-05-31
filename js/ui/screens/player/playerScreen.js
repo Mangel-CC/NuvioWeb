@@ -1212,6 +1212,7 @@ export const PlayerScreen = {
     this.embeddedTrackRequestPromise = null;
     this.embeddedTrackRequestUrl = "";
     this.lastEmbeddedTrackProbeUrl = "";
+    this.lastEmbeddedTrackRetryAt = 0;
     this.manifestLoadToken = 0;
     this.manifestLoading = false;
     this.manifestAudioTracks = [];
@@ -4788,6 +4789,7 @@ export const PlayerScreen = {
     this.embeddedTrackRequestPromise = null;
     this.embeddedTrackRequestUrl = "";
     this.lastEmbeddedTrackProbeUrl = "";
+    this.lastEmbeddedTrackRetryAt = 0;
     this.lastTrackWarmupAt = Date.now();
     const embeddedSubtitleWarmupPromise = this.loadEmbeddedSubtitleTracks();
     this.initialEmbeddedTrackBootstrapPromise = embeddedSubtitleWarmupPromise;
@@ -5040,12 +5042,26 @@ export const PlayerScreen = {
         return;
       }
 
-      const doneByData = this.hasAudioTracksAvailable() || this.hasSubtitleTracksAvailable();
+      const now = Date.now();
+      const shouldRetryEmbeddedSubtitles = this.canDiscoverEmbeddedSubtitleTracks()
+        && this.embeddedSubtitleTracks.length <= 0
+        && !this.embeddedSubtitleLoading;
+      if (
+        shouldRetryEmbeddedSubtitles
+        && (now - Number(this.lastEmbeddedTrackRetryAt || 0)) >= 1200
+      ) {
+        this.lastEmbeddedTrackRetryAt = now;
+        this.loadEmbeddedSubtitleTracks();
+      }
+
+      const doneByData = this.hasSubtitleTracksAvailable()
+        || (this.hasAudioTracksAvailable() && !shouldRetryEmbeddedSubtitles);
       const doneByIdle = !this.subtitleLoading
         && !this.embeddedSubtitleLoading
         && !this.manifestLoading
-        && (Date.now() - Number(this.trackDiscoveryStartedAt || 0)) >= 1200;
-      const doneByTimeout = Date.now() >= this.trackDiscoveryDeadline;
+        && !shouldRetryEmbeddedSubtitles
+        && (now - Number(this.trackDiscoveryStartedAt || 0)) >= 1200;
+      const doneByTimeout = now >= this.trackDiscoveryDeadline;
       this.refreshTrackDialogs();
 
       if (doneByData || doneByIdle || doneByTimeout) {
