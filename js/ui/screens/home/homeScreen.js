@@ -1999,6 +1999,11 @@ function groupNodesByOffsetTop(nodes = []) {
   return grouped.map((entry) => entry.nodes);
 }
 
+function optimizeTmdbImage(url, width) {
+  if (!url || typeof url !== "string") return url;
+  return url.replace(/(image\.tmdb\.org\/t\/p\/)([^/]+)(\/)/g, `$1w${width}$3`);
+}
+
 export function createPosterCardMarkup(item, rowIndex, itemIndex, itemType, rowData = null, showLabels = true, layoutMode = "classic", isExpanded = false, preferLandscapePoster = false) {
   const suppressPosterText = Boolean(rowData?.suppressPosterText);
   const collectionSeed = rowData?.rowKind === "collection"
@@ -2066,19 +2071,25 @@ export function createPosterCardMarkup(item, rowIndex, itemIndex, itemType, rowD
     normalized.poster,
     normalized.thumbnail
   );
-  const backdropSrc = useLandscapePoster
-    ? landscapeVisualSrc
-    : firstNonEmpty(
-      preferredLandscapePosterSrc,
-      normalized.background,
-      normalized.backdrop,
-      normalized.backdropUrl,
-      normalized.poster
-    );
-  const posterSrc = useLandscapePoster
-    ? landscapeVisualSrc
-    : firstNonEmpty(normalized.poster, normalized.thumbnail, preferredLandscapePosterSrc, normalized.backdrop, normalized.backdropUrl);
-  const expandedVisualSrc = firstNonEmpty(backdropSrc, posterSrc);
+  const backdropSrc = optimizeTmdbImage(
+    useLandscapePoster
+      ? landscapeVisualSrc
+      : firstNonEmpty(
+        preferredLandscapePosterSrc,
+        normalized.background,
+        normalized.backdrop,
+        normalized.backdropUrl,
+        normalized.poster
+      ),
+    780
+  );
+  const posterSrc = optimizeTmdbImage(
+    useLandscapePoster
+      ? landscapeVisualSrc
+      : firstNonEmpty(normalized.poster, normalized.thumbnail, preferredLandscapePosterSrc, normalized.backdrop, normalized.backdropUrl),
+    342
+  );
+  const expandedVisualSrc = optimizeTmdbImage(firstNonEmpty(backdropSrc, posterSrc), 780);
   const expandedClass = isExpanded ? " is-expanded" : "";
   const landscapeClass = useLandscapePoster ? " is-landscape" : "";
   const focusableClass = isLoading ? "" : " focusable";
@@ -7424,6 +7435,34 @@ export const HomeScreen = {
     if (this.completePendingContinueWatchingHold(current)) {
       event.preventDefault?.();
     }
+  },
+
+  onPointerActivate(node, event) {
+    if (!node) return false;
+    const action = node.dataset.action;
+    if (!action) return false;
+    if (String(node.dataset.navZone || "") === "sidebar") {
+      activateLegacySidebarAction(action, "home");
+      return true;
+    }
+    if (action === "openDetail" || action === "openCollectionFolder") {
+      this.openDetailFromNode(node);
+      return true;
+    }
+    if (action === "openCatalogSeeAll") {
+      this.openCatalogSeeAllFromNode(node);
+      return true;
+    }
+    if (action === "resumeProgress") {
+      this.scheduleContinueWatchingEnter(node);
+      return true;
+    }
+    return false;
+  },
+
+  onPointerFocus(node, event) {
+    if (!node) return;
+    this.scheduleModernHeroUpdate(node);
   },
 
   consumeBackRequest() {

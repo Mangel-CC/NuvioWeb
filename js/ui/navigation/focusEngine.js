@@ -60,11 +60,14 @@ export const FocusEngine = {
       document.addEventListener("tizenhwkey", this.boundHandleTizenHardwareKey, true);
     }
     if (Platform.isWebOS()) {
+      document.documentElement?.classList?.add("webos-pointer-remote");
+      document.body?.classList?.add("webos-pointer-remote");
+    }
+    // Register pointer/click events on WebOS and browser (not Tizen — D-pad only)
+    if (!Platform.isTizen()) {
       document.addEventListener("mousemove", this.boundHandlePointerMove, true);
       document.addEventListener("pointermove", this.boundHandlePointerMove, true);
       document.addEventListener("click", this.boundHandlePointerClick, true);
-      document.documentElement?.classList?.add("webos-pointer-remote");
-      document.body?.classList?.add("webos-pointer-remote");
     }
   },
 
@@ -190,7 +193,7 @@ export const FocusEngine = {
   },
 
   handlePointerMove(event) {
-    if (!Platform.isWebOS()) {
+    if (Platform.isTizen()) {
       return;
     }
     this.pendingPointerMoveEvent = event;
@@ -211,7 +214,7 @@ export const FocusEngine = {
   },
 
   processPointerMove(event) {
-    if (!Platform.isWebOS()) {
+    if (Platform.isTizen()) {
       return;
     }
     const target = this.getPointerFocusable(event);
@@ -222,7 +225,7 @@ export const FocusEngine = {
   },
 
   async handlePointerClick(event) {
-    if (!Platform.isWebOS()) {
+    if (Platform.isTizen()) {
       return;
     }
     const target = this.getPointerFocusable(event);

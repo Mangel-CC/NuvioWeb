@@ -16234,3 +16234,15 @@ button:focus-visible {
   color: var(--detail-text-secondary);
   font-size: 28px;
 }
+
+/* ── PC / browser pointer mode ─────────────────────────────────────────── */
+/* Targets devices with a precise pointer (mouse) — not TV or touch */
+@media (hover: hover) and (pointer: fine) {
+  .focusable {
+    cursor: pointer;
+  }
+
+  .home-content-card.focusable:hover .home-poster-frame {
+    border-color: var(--secondary-color);
+  }
+}

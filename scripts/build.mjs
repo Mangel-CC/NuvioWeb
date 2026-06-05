@@ -174,6 +174,12 @@ async function runBuild() {
     const sourceIndex = await readFile(path.join(rootDir, "index.html"), "utf8");
     await writeFile(path.join(distDir, "index.html"), sourceIndex);
 
+    // Copy deployment extras (service worker + Vercel headers config)
+    await Promise.all([
+      cp(path.join(rootDir, "sw.js"), path.join(distDir, "sw.js")).catch(() => {}),
+      cp(path.join(rootDir, "vercel.json"), path.join(distDir, "vercel.json")).catch(() => {}),
+    ]);
+
     console.log("configuring nuvio.env.js...");
     const copiedEnvSource = await copyOptionalRootFile("nuvio.env.js", {
       fallback: "nuvio.env.example.js"
