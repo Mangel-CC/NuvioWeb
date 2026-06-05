@@ -16245,4 +16245,13 @@ button:focus-visible {
   .home-content-card.focusable:hover .home-poster-frame {
     border-color: var(--secondary-color);
   }
+
+  .home-track {
+    cursor: grab;
+    user-select: none;
+  }
+
+  .home-track:active {
+    cursor: grabbing;
+  }
 }
