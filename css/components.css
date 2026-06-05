@@ -16247,11 +16247,6 @@ button:focus-visible {
   }
 
   .home-track {
-    cursor: grab;
     user-select: none;
-  }
-
-  .home-track:active {
-    cursor: grabbing;
   }
 }

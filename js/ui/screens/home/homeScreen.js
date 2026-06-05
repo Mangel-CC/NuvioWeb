@@ -5874,6 +5874,10 @@ export const HomeScreen = {
     }
     if (!this.boundHomeClickHandler) {
       this.boundHomeClickHandler = (event) => {
+        if (this._suppressClickFromDrag) {
+          this._suppressClickFromDrag = false;
+          return;
+        }
         const target = event?.target?.closest?.(".home-main .focusable");
         if (!target || !this.container?.contains(target)) {
           return;
@@ -5920,16 +5924,9 @@ export const HomeScreen = {
         this.scheduleHomeViewportFocusSync();
       };
     }
-    if (!Platform.isTizen() && !this.boundTrackWheelHandler) {
-      this.boundTrackWheelHandler = (event) => {
-        const track = event?.target?.closest?.(".home-track");
-        if (!track) return;
-        if (Math.abs(event.deltaX) > Math.abs(event.deltaY) * 0.5) return;
-        event.preventDefault();
-        track.scrollLeft += event.deltaY * 1.5;
-      };
-
+    if (!Platform.isTizen() && !this.boundTrackMousedownHandler) {
       this._trackDrag = null;
+      this._suppressClickFromDrag = false;
 
       this.boundTrackMousedownHandler = (event) => {
         if (event.button !== 0) return;
@@ -5946,7 +5943,7 @@ export const HomeScreen = {
       this.boundTrackMousemoveHandler = (event) => {
         if (!this._trackDrag) return;
         const dx = this._trackDrag.startX - event.clientX;
-        if (Math.abs(dx) > 5) {
+        if (Math.abs(dx) > 10) {
           this._trackDrag.moved = true;
           this._trackDrag.track.scrollLeft = this._trackDrag.startScrollLeft + dx;
           this._trackDrag.track.style.cursor = "grabbing";
@@ -5959,12 +5956,7 @@ export const HomeScreen = {
         this._trackDrag.track.style.cursor = "";
         this._trackDrag = null;
         if (wasDragging) {
-          const suppressClick = (e) => {
-            e.stopImmediatePropagation();
-            e.preventDefault();
-            document.removeEventListener("click", suppressClick, true);
-          };
-          document.addEventListener("click", suppressClick, true);
+          this._suppressClickFromDrag = true;
         }
       };
 
@@ -5980,15 +5972,13 @@ export const HomeScreen = {
       this.boundHomeEventContainer.removeEventListener("click", this.boundHomeClickHandler);
       this.boundHomeEventContainer.removeEventListener("mouseover", this.boundHomeMouseOverHandler);
       this.boundHomeEventContainer.removeEventListener("wheel", this.boundHomeWheelHandler);
-      this.boundHomeEventContainer.removeEventListener("wheel", this.boundTrackWheelHandler);
       this.boundHomeEventContainer.removeEventListener("mousedown", this.boundTrackMousedownHandler);
     }
     this.container.addEventListener("focusin", this.boundHomeFocusInHandler);
     this.container.addEventListener("click", this.boundHomeClickHandler);
     this.container.addEventListener("mouseover", this.boundHomeMouseOverHandler);
     this.container.addEventListener("wheel", this.boundHomeWheelHandler, { passive: true });
-    if (!Platform.isTizen() && this.boundTrackWheelHandler) {
-      this.container.addEventListener("wheel", this.boundTrackWheelHandler, { passive: false });
+    if (!Platform.isTizen() && this.boundTrackMousedownHandler) {
       this.container.addEventListener("mousedown", this.boundTrackMousedownHandler);
     }
     this.boundHomeEventContainer = this.container;
