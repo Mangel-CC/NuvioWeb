@@ -5874,8 +5874,7 @@ export const HomeScreen = {
     }
     if (!this.boundHomeClickHandler) {
       this.boundHomeClickHandler = (event) => {
-        if (this._suppressClickFromDrag) {
-          this._suppressClickFromDrag = false;
+        if (this._lastDragEndAt && Date.now() - this._lastDragEndAt < 300) {
           return;
         }
         const target = event?.target?.closest?.(".home-main .focusable");
@@ -5956,7 +5955,7 @@ export const HomeScreen = {
         this._trackDrag.track.style.cursor = "";
         this._trackDrag = null;
         if (wasDragging) {
-          this._suppressClickFromDrag = true;
+          this._lastDragEndAt = Date.now();
         }
       };
 
@@ -7486,6 +7485,9 @@ export const HomeScreen = {
   },
 
   onPointerActivate(node, event) {
+    if (this._lastDragEndAt && Date.now() - this._lastDragEndAt < 300) {
+      return false;
+    }
     if (!node) return false;
     const action = node.dataset.action;
     if (!action) return false;
