@@ -3,17 +3,17 @@ export const MODERN_HOME_CONSTANTS = {
   heroRapidNavThresholdMs: 130,
   heroRapidSettleMs: 400,
   keyRepeatThrottleMs: 80,
-  cameraFollowDelayMs: 140,
-  cameraFollowDurationXMs: 440,
-  cameraFollowDurationYMs: 440,
-  cameraSafetyDurationMs: 180,
-  springScrollStiffness: 180,
-  springScrollDampingRatio: 0.95,
+  cameraFollowDelayMs: 50,
+  cameraFollowDurationXMs: 180,
+  cameraFollowDurationYMs: 200,
+  cameraSafetyDurationMs: 100,
+  springScrollStiffness: 700,
+  springScrollDampingRatio: 1.0,
   rowFocusInset: 40,
   trackEdgePadding: 104,
-  verticalFastScrollVelocityPxPerSec: 6400,
-  verticalFastScrollEndTimeoutMs: 160,
-  verticalFastScrollMaxFrameMs: 48
+  verticalFastScrollVelocityPxPerSec: 8000,
+  verticalFastScrollEndTimeoutMs: 100,
+  verticalFastScrollMaxFrameMs: 32
 };
 
 export function renderModernHomeLayout({

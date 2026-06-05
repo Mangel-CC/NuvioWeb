@@ -4591,13 +4591,12 @@ button:focus-visible {
   border: 2px solid transparent;
   background: transparent;
   overflow: visible;
-  transition: transform 160ms ease-out, border-color 160ms ease, box-shadow 160ms ease;
+  will-change: border-color;
+  transition: border-color 80ms ease;
 }
 
 .home-screen-shell .home-content-card.focused {
   border-color: var(--secondary-color);
-  transform: scale(1.01);
-  transform-origin: center center;
 }
 
 .home-screen-shell .home-poster-card {
@@ -4624,13 +4623,11 @@ button:focus-visible {
   border-radius: calc(var(--home-poster-radius) - 2px);
   background-color: transparent;
   overflow: hidden;
-  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+  transition: border-color 80ms ease;
 }
 
 .home-screen-shell .home-poster-card.focused .home-poster-frame {
   border-color: var(--secondary-color);
-  box-shadow: 0 0 0 2px var(--secondary-color);
-  background-color: var(--focus-bg);
   transform: none;
 }
 
@@ -6154,13 +6151,11 @@ button:focus-visible {
   height: var(--home-poster-height);
   aspect-ratio: auto;
   border-radius: var(--home-poster-radius);
-  transition: height 180ms ease-out, border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+  transition: height 180ms ease-out, border-color 80ms ease;
 }
 
 .home-screen-shell.home-layout-modern .home-poster-card.focused .home-poster-frame {
   border-color: var(--secondary-color);
-  box-shadow: 0 0 0 2px var(--secondary-color);
-  background-color: var(--focus-bg);
   transform: none;
 }
 

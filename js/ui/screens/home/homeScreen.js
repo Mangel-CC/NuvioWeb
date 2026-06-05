@@ -2949,7 +2949,7 @@ export const HomeScreen = {
 
   getHeroFocusDelay({ rapid = false } = {}) {
     if (this.isLegacyTvRuntime()) {
-      return rapid ? 260 : 150;
+      return rapid ? 700 : 500;
     }
     return rapid ? MODERN_HOME_CONSTANTS.heroRapidSettleMs : MODERN_HOME_CONSTANTS.heroFocusDelayMs;
   },
