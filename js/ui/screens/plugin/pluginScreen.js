@@ -230,6 +230,7 @@ export const PluginScreen = {
     bindRootSidebarEvents(this.container, {
       currentRoute: "plugin",
       onSelectedAction: () => this.closeSidebarToContent(),
+      onCollapseSidebar: () => this.closeSidebarToContent(),
       onExpandSidebar: () => this.openSidebar()
     });
     this.bindContentEvents();

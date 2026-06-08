@@ -60,6 +60,9 @@ const HOME_INITIAL_CATALOG_LOAD = 10;
 const HOME_MAX_ITEMS_PER_ROW_DEFAULT = 15;
 const HOME_MAX_ITEMS_PER_ROW_CONSTRAINED = 10;
 const HOME_MAX_ITEMS_PER_ROW_LEGACY_TV = 8;
+const HOME_MAX_RENDERED_ROWS_DEFAULT = 28;
+const HOME_MAX_RENDERED_ROWS_CONSTRAINED = 18;
+const HOME_MAX_RENDERED_ROWS_LEGACY_TV = 12;
 const HOME_LOADING_ROW_ITEMS_DEFAULT = 10;
 const HOME_LOADING_ROW_ITEMS_CONSTRAINED = 8;
 const HOME_LOADING_ROW_ITEMS_LEGACY_TV = 6;
@@ -2846,6 +2849,35 @@ export const HomeScreen = {
     return Boolean(globalThis.document?.body?.classList?.contains("performance-constrained"));
   },
 
+  debugLog(level, event, details = {}) {
+    try {
+      globalThis.__NUVIO_CLIENT_LOG__?.(level, event, {
+        screen: "home",
+        layoutMode: this.layoutMode || "",
+        performanceConstrained: this.isPerformanceConstrained(),
+        rows: Array.isArray(this.rows) ? this.rows.length : 0,
+        continueWatching: Array.isArray(this.continueWatchingDisplay) ? this.continueWatchingDisplay.length : 0,
+        ...details
+      });
+    } catch (_) {
+    }
+  },
+
+  getHomeDebugSummary() {
+    const rows = Array.isArray(this.rows) ? this.rows : [];
+    const itemCount = rows.reduce((total, row) => {
+      const items = row?.result?.data?.items;
+      return total + (Array.isArray(items) ? items.length : 0);
+    }, 0);
+    return {
+      rows: rows.length,
+      itemCount,
+      continueWatching: Array.isArray(this.continueWatchingDisplay) ? this.continueWatchingDisplay.length : 0,
+      domImages: this.container?.querySelectorAll?.("img")?.length || 0,
+      focusedCards: this.container?.querySelectorAll?.(".focusable.focused")?.length || 0
+    };
+  },
+
   hasCollectionHomeRows() {
     return Array.isArray(this.collections) && this.collections.length > 0;
   },
@@ -2862,6 +2894,16 @@ export const HomeScreen = {
     return this.isPerformanceConstrained()
       ? HOME_MAX_ITEMS_PER_ROW_CONSTRAINED
       : HOME_MAX_ITEMS_PER_ROW_DEFAULT;
+  },
+
+  getMaxRenderedHomeRows() {
+    if (this.isLegacyTvRuntime()) {
+      return HOME_MAX_RENDERED_ROWS_LEGACY_TV;
+    }
+    if (this.isPerformanceConstrained() || Platform.isWebOS() || Platform.isTizen()) {
+      return HOME_MAX_RENDERED_ROWS_CONSTRAINED;
+    }
+    return HOME_MAX_RENDERED_ROWS_DEFAULT;
   },
 
   getLoadingRowItemCount() {
@@ -5493,6 +5535,13 @@ export const HomeScreen = {
     return true;
   },
 
+  shouldUseModernVerticalFastScroll() {
+    if (Platform.isWebOS() || Platform.isTizen()) {
+      return false;
+    }
+    return Boolean(LocalStore.get("modernVerticalFastScrollEnabled", false));
+  },
+
   armModernVerticalFastScrollEndTimer() {
     if (this.modernVerticalFastScrollEndTimer) {
       clearTimeout(this.modernVerticalFastScrollEndTimer);
@@ -5759,6 +5808,7 @@ export const HomeScreen = {
     if (typeof event?.preventDefault === "function") {
       event.preventDefault();
     }
+    this.lastDpadNavigationAt = Date.now();
 
     const inputMeta = {
       repeat: Boolean(event?.repeat)
@@ -5824,7 +5874,12 @@ export const HomeScreen = {
     }
 
     if (direction === "up" || direction === "down") {
-      if (this.layoutMode === "modern" && event?.repeat && this.startModernVerticalFastScroll(direction === "down" ? 1 : -1)) {
+      if (
+        this.layoutMode === "modern"
+        && event?.repeat
+        && this.shouldUseModernVerticalFastScroll()
+        && this.startModernVerticalFastScroll(direction === "down" ? 1 : -1)
+      ) {
         return true;
       }
       const delta = direction === "up" ? -1 : 1;
@@ -5897,6 +5952,9 @@ export const HomeScreen = {
     }
     if (!this.boundHomeMouseOverHandler) {
       this.boundHomeMouseOverHandler = (event) => {
+        if (Date.now() - Number(this.lastDpadNavigationAt || 0) < 850) {
+          return;
+        }
         const target = event?.target?.closest?.(".home-main .home-content-card.focusable");
         if (!target || !this.container?.contains(target) || target.classList.contains("focused")) {
           return;
@@ -6011,8 +6069,14 @@ export const HomeScreen = {
   },
 
   async mount(params = {}, navigationContext = {}) {
+    const mountStartedAt = performance?.now?.() || Date.now();
     this.container = document.getElementById("home");
     ScreenUtils.show(this.container);
+    this.debugLog("info", "home_mount_start", {
+      hasLoadedOnce: Boolean(this.hasLoadedOnce),
+      isBackNavigation: Boolean(navigationContext?.isBackNavigation),
+      forceReload: Boolean(params?.forceReload)
+    });
     this.ensureDelegatedEventsBound();
     this.sidebarExpanded = false;
     this.pillIconOnly = false;
@@ -6065,6 +6129,14 @@ export const HomeScreen = {
       this.render();
       this.loadData({ background: true }).catch((error) => {
         console.warn("Home background refresh failed", error);
+        this.debugLog("error", "home_background_refresh_failed", {
+          message: String(error?.message || error),
+          stack: String(error?.stack || "")
+        });
+      });
+      this.debugLog("info", "home_mount_ready_cached", {
+        durationMs: Math.round((performance?.now?.() || Date.now()) - mountStartedAt),
+        ...this.getHomeDebugSummary()
       });
       return;
     }
@@ -6082,9 +6154,14 @@ export const HomeScreen = {
     this.sidebarProfile = await getLocalSidebarProfileState().catch(() => null);
     this.render();
     await this.loadData({ background: false });
+    this.debugLog("info", "home_mount_ready", {
+      durationMs: Math.round((performance?.now?.() || Date.now()) - mountStartedAt),
+      ...this.getHomeDebugSummary()
+    });
   },
 
   async loadData({ background = false } = {}) {
+    const loadStartedAt = performance?.now?.() || Date.now();
     const token = this.homeLoadToken;
     const prefs = LayoutPreferences.get();
     this.layoutPrefs = prefs;
@@ -6158,14 +6235,21 @@ export const HomeScreen = {
       return null;
     });
 
+    this.debugLog("info", "home_load_data_start", { background: Boolean(background) });
+
     const addons = await addonRepository.getInstalledAddons();
     this.collections = CollectionsStore.get();
     const catalogDescriptors = [];
+    const disabledCatalogKeys = new Set(HomeCatalogStore.get().disabled || []);
 
     addons.forEach((addon) => {
       addon.catalogs
-        .filter((catalog) => !isSearchOnlyCatalog(catalog))
+        .filter((catalog) => !isSearchOnlyCatalog(catalog) && catalog.showInHome !== false)
         .forEach((catalog) => {
+          const disableKey = buildCatalogDisableKey(addon.baseUrl, catalog.apiType, catalog.id, catalog.name);
+          if (disabledCatalogKeys.has(disableKey)) {
+            return;
+          }
           catalogDescriptors.push({
             addonBaseUrl: addon.baseUrl,
             addonId: addon.id,
@@ -6179,7 +6263,19 @@ export const HomeScreen = {
 
     const initialCatalogLoad = this.getInitialCatalogLoadCount();
     const initialDescriptors = catalogDescriptors.slice(0, initialCatalogLoad);
-    const deferredDescriptors = catalogDescriptors.slice(initialCatalogLoad);
+    const maxRenderedRows = this.getMaxRenderedHomeRows();
+    const deferredBudget = Math.max(0, maxRenderedRows - initialDescriptors.length);
+    const deferredDescriptors = catalogDescriptors.slice(initialCatalogLoad, initialCatalogLoad + deferredBudget);
+    const skippedDeferredDescriptors = Math.max(0, catalogDescriptors.length - initialCatalogLoad - deferredDescriptors.length);
+    this.debugLog("info", "home_catalog_descriptors", {
+      addonCount: Array.isArray(addons) ? addons.length : 0,
+      descriptorCount: catalogDescriptors.length,
+      disabledDescriptorCount: disabledCatalogKeys.size,
+      initialCatalogLoad,
+      deferredCount: deferredDescriptors.length,
+      skippedDeferredDescriptors,
+      maxRenderedRows
+    });
 
     const initialRows = await this.fetchCatalogRows(initialDescriptors, { allowLoading: true });
     if (token !== this.homeLoadToken) {
@@ -6229,6 +6325,11 @@ export const HomeScreen = {
     this.isInitialHomeLoading = false;
     this.hasLoadedOnce = true;
     this.render();
+    this.debugLog("info", "home_load_data_initial_ready", {
+      background: Boolean(background),
+      durationMs: Math.round((performance?.now?.() || Date.now()) - loadStartedAt),
+      ...this.getHomeDebugSummary()
+    });
     const previousSidebarProfileSignature = buildSidebarProfileSignature(this.sidebarProfile);
     sidebarProfilePromise.then((profile) => {
       if (token !== this.homeLoadToken || Router.getCurrent() !== "home") {
@@ -6487,15 +6588,31 @@ export const HomeScreen = {
     const catalogRows = (Array.isArray(rows) ? rows : []).filter((row) => row?.rowKind !== "collection");
     const rowMap = new Map([...catalogRows, ...collectionRows].map((row) => [row.homeCatalogKey, row]));
     const allKeys = Array.from(rowMap.keys());
-    const orderedKeys = HomeCatalogStore.ensureOrderKeys(allKeys);
-    const disabledKeys = new Set(HomeCatalogStore.get().disabled || []);
+    const catalogPrefs = HomeCatalogStore.get();
+    const savedOrderedKeys = Array.isArray(catalogPrefs.order) ? catalogPrefs.order : [];
+    const savedValidKeys = savedOrderedKeys.filter((key, index, array) => rowMap.has(key) && array.indexOf(key) === index);
+    const savedKeySet = new Set(savedValidKeys);
+    const orderedKeys = [...savedValidKeys, ...allKeys.filter((key) => !savedKeySet.has(key))];
+    const disabledKeys = new Set(catalogPrefs.disabled || []);
     const pinnedTopRows = collectionRows.filter((row) => row.pinToTop && !disabledKeys.has(row.homeCatalogDisableKey));
     const pinnedKeys = new Set(pinnedTopRows.map((row) => row.homeCatalogKey));
     const orderedRows = orderedKeys
       .filter((key) => !pinnedKeys.has(key) && !disabledKeys.has(key))
       .map((key) => rowMap.get(key))
       .filter(Boolean);
-    return [...pinnedTopRows, ...orderedRows];
+    const maxCatalogRows = this.getMaxRenderedHomeRows();
+    let visibleCatalogRows = 0;
+    const cappedOrderedRows = orderedRows.filter((row) => {
+      if (row?.rowKind === "collection") {
+        return true;
+      }
+      if (visibleCatalogRows >= maxCatalogRows) {
+        return false;
+      }
+      visibleCatalogRows += 1;
+      return true;
+    });
+    return [...pinnedTopRows, ...cappedOrderedRows];
   },
 
   retryPendingCatalogRows() {
@@ -6573,6 +6690,7 @@ export const HomeScreen = {
   },
 
   render() {
+    const renderStartedAt = performance?.now?.() || Date.now();
     this.cancelScheduledRender();
     this.cancelModernCameraFollow({ stopAnimations: true });
     this.teardownModernTrackScrollPagination();
@@ -6724,6 +6842,7 @@ export const HomeScreen = {
     bindRootSidebarEvents(this.container, {
       currentRoute: "home",
       onSelectedAction: () => this.closeSidebarToContent(),
+      onCollapseSidebar: () => this.closeSidebarToContent(),
       onExpandSidebar: () => this.openSidebar()
     });
 
@@ -6802,6 +6921,12 @@ export const HomeScreen = {
     this.ensureHomeTruncationObservers();
     this.scheduleHomeTruncationUpdate();
     this.scheduleReturnFocusRestore();
+    const renderDurationMs = Math.round((performance?.now?.() || Date.now()) - renderStartedAt);
+    this.debugLog(renderDurationMs > 1200 ? "warn" : "info", "home_render_complete", {
+      durationMs: renderDurationMs,
+      isInitialHomeLoading: Boolean(this.isInitialHomeLoading),
+      ...this.getHomeDebugSummary()
+    });
   },
 
   teardownGridStickyHeader() {
@@ -7510,6 +7635,35 @@ export const HomeScreen = {
     return false;
   },
 
+  onContextMenu(target, event) {
+    const node = target?.closest?.(".home-continue-card.focusable, .home-poster-card.focusable") || null;
+    if (!node || !this.container?.contains?.(node) || !this.isHomeHoldTarget(node)) {
+      return false;
+    }
+
+    event?.preventDefault?.();
+    this.cancelPendingContinueWatchingEnter();
+    this.cancelPendingContinueWatchingHold();
+
+    const current = this.container?.querySelector(".focusable.focused") || null;
+    if (current && current !== node) {
+      this.focusNode(current, node);
+    } else if (!current) {
+      this.container?.querySelectorAll(".focusable.focused").forEach((focusedNode) => {
+        if (focusedNode !== node) {
+          focusedNode.classList.remove("focused");
+        }
+      });
+      node.classList.add("focused");
+      this.focusWithoutAutoScroll(node, { suppressDelegatedFocus: true });
+      this.lastMainFocus = node;
+      this.rememberMainRowFocus(node);
+      this.scheduleModernHeroUpdate(node);
+    }
+
+    return this.openHoldMenuForNode(node);
+  },
+
   onPointerFocus(node, event) {
     if (!node) return;
     this.scheduleModernHeroUpdate(node);
@@ -7696,6 +7850,20 @@ export const HomeScreen = {
       this.boundHomeViewport.removeEventListener("scroll", this.boundHomeViewportScrollHandler);
     }
     this.boundHomeViewport = null;
+    if (this.container?._sidebarCollapseHandler) {
+      document.removeEventListener("mousemove", this.container._sidebarCollapseHandler);
+      document.removeEventListener("pointermove", this.container._sidebarCollapseHandler);
+      this.container._sidebarCollapseHandler = null;
+    }
+    if (this.container?._sidebarOutsideClickHandler) {
+      document.removeEventListener("pointerdown", this.container._sidebarOutsideClickHandler, true);
+      document.removeEventListener("click", this.container._sidebarOutsideClickHandler, true);
+      this.container._sidebarOutsideClickHandler = null;
+    }
+    if (this.container?._sidebarCollapseTimer) {
+      clearTimeout(this.container._sidebarCollapseTimer);
+      this.container._sidebarCollapseTimer = null;
+    }
     if (this.homeTruncationFrame) {
       cancelAnimationFrame(this.homeTruncationFrame);
       this.homeTruncationFrame = null;

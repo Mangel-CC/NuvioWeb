@@ -44,9 +44,11 @@ function buildNormalizedEvent(event) {
 
 export const FocusEngine = {
   lastBackHandledAt: 0,
+  lastDirectionalInputAt: 0,
   lastPointerFocusTarget: null,
   pointerMoveFrame: null,
   pendingPointerMoveEvent: null,
+  pointerAfterDpadGuardMs: 850,
 
   init() {
     this.boundHandleKey = this.handleKey.bind(this);
@@ -54,6 +56,7 @@ export const FocusEngine = {
     this.boundHandleTizenHardwareKey = this.handleTizenHardwareKey.bind(this);
     this.boundHandlePointerMove = this.handlePointerMove.bind(this);
     this.boundHandlePointerClick = this.handlePointerClick.bind(this);
+    this.boundHandleContextMenu = this.handleContextMenu.bind(this);
     document.addEventListener("keydown", this.boundHandleKey, true);
     document.addEventListener("keyup", this.boundHandleKeyUp, true);
     if (Platform.isTizen()) {
@@ -68,6 +71,7 @@ export const FocusEngine = {
       document.addEventListener("mousemove", this.boundHandlePointerMove, true);
       document.addEventListener("pointermove", this.boundHandlePointerMove, true);
       document.addEventListener("click", this.boundHandlePointerClick, true);
+      document.addEventListener("contextmenu", this.boundHandleContextMenu, true);
     }
   },
 
@@ -99,6 +103,10 @@ export const FocusEngine = {
     }
 
     const normalizedEvent = buildNormalizedEvent(event);
+    if ([37, 38, 39, 40].includes(Number(normalizedEvent.keyCode || 0))) {
+      this.lastDirectionalInputAt = Date.now();
+      this.lastPointerFocusTarget = null;
+    }
 
     if (Platform.isBackEvent({
         target: normalizedEvent.target,
@@ -217,6 +225,11 @@ export const FocusEngine = {
     if (Platform.isTizen()) {
       return;
     }
+    if (Date.now() - Number(this.lastDirectionalInputAt || 0) < this.pointerAfterDpadGuardMs) {
+      return;
+    }
+    const currentScreen = Router.getCurrentScreen();
+    currentScreen?.onPointerActivity?.(event);
     const target = this.getPointerFocusable(event);
     if (!target || target === this.lastPointerFocusTarget) {
       return;
@@ -228,16 +241,52 @@ export const FocusEngine = {
     if (Platform.isTizen()) {
       return;
     }
+    const currentScreen = Router.getCurrentScreen();
     const target = this.getPointerFocusable(event);
     if (!target) {
+      if (typeof currentScreen?.onPointerActivate === "function") {
+        const rawTarget = event?.target instanceof HTMLElement ? event.target : null;
+        const rawHandled = rawTarget ? await currentScreen.onPointerActivate(rawTarget, event) : false;
+        if (rawHandled) {
+          event?.preventDefault?.();
+          event?.stopPropagation?.();
+          event?.stopImmediatePropagation?.();
+          return;
+        }
+      }
+      const handled = await currentScreen?.onPointerBackgroundActivate?.(event?.target || null, event);
+      if (handled) {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        event?.stopImmediatePropagation?.();
+      }
       return;
     }
     this.focusPointerTarget(target, event);
-    const currentScreen = Router.getCurrentScreen();
     if (typeof currentScreen?.onPointerActivate !== "function") {
       return;
     }
     const handled = await currentScreen.onPointerActivate(target, event);
+    if (handled) {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      event?.stopImmediatePropagation?.();
+    }
+  },
+
+  handleContextMenu(event) {
+    if (Platform.isTizen()) {
+      return;
+    }
+    const currentScreen = Router.getCurrentScreen();
+    if (typeof currentScreen?.onContextMenu !== "function") {
+      return;
+    }
+    const rawTarget = event?.target instanceof HTMLElement ? event.target : null;
+    if (!rawTarget) {
+      return;
+    }
+    const handled = currentScreen.onContextMenu(rawTarget, event);
     if (handled) {
       event?.preventDefault?.();
       event?.stopPropagation?.();

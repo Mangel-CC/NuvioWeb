@@ -27,6 +27,7 @@ import { ThemeManager } from "./ui/theme/themeManager.js";
 import { renderAppShell } from "./bootstrap/renderAppShell.js";
 import { renderAddonRemotePage } from "./bootstrap/renderAddonRemotePage.js";
 import { warmStreamingLibs } from "./runtime/loadStreamingLibs.js";
+import { addonRepository } from "./data/repository/addonRepository.js";
 import { Platform } from "./platform/index.js";
 import { LocalStore } from "./core/storage/localStore.js";
 import { I18n } from "./i18n/index.js";
@@ -35,6 +36,8 @@ const GUEST_QR_BYPASS_KEY = "skipAuthQrGate";
 const SIGNED_OUT_ALLOWED_ROUTES = new Set(["trakt"]);
 let hasSelectedProfileThisSession = false;
 let appShellRendered = false;
+let clientDebugStarted = false;
+let clientDebugSequence = 0;
 
 function isSignedOutRouteAllowed() {
   return SIGNED_OUT_ALLOWED_ROUTES.has(Router.getCurrent());
@@ -61,6 +64,82 @@ function renderFatalError(error) {
       </div>
     </div>
   `;
+}
+
+function serializeError(error) {
+  if (!error) {
+    return { message: "Unknown error" };
+  }
+  if (typeof error === "string") {
+    return { message: error };
+  }
+  return {
+    name: String(error?.name || ""),
+    message: String(error?.message || error),
+    stack: String(error?.stack || "")
+  };
+}
+
+function getClientDebugContext() {
+  return {
+    sequence: ++clientDebugSequence,
+    route: typeof Router?.getCurrent === "function" ? Router.getCurrent() : "",
+    url: String(globalThis.location?.href || ""),
+    visibilityState: String(document?.visibilityState || ""),
+    userAgent: String(navigator?.userAgent || ""),
+    platform: Platform.getName?.() || "",
+    appVersion: typeof __NUVIO_APP_VERSION__ === "undefined" ? "" : String(__NUVIO_APP_VERSION__),
+    memory: navigator?.deviceMemory || null,
+    hardwareConcurrency: navigator?.hardwareConcurrency || null,
+    timestamp: new Date().toISOString()
+  };
+}
+
+function sendClientDebugLog(level, event, details = {}) {
+  try {
+    const body = JSON.stringify({
+      level,
+      event,
+      context: getClientDebugContext(),
+      details
+    });
+    const endpoint = "/api/client-log";
+    if (navigator?.sendBeacon) {
+      const blob = new Blob([body], { type: "application/json" });
+      if (navigator.sendBeacon(endpoint, blob)) {
+        return;
+      }
+    }
+    fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true
+    }).catch(() => {});
+  } catch (_) {
+  }
+}
+
+function startClientDebugLogging() {
+  if (clientDebugStarted) {
+    return;
+  }
+  clientDebugStarted = true;
+  globalThis.__NUVIO_CLIENT_LOG__ = sendClientDebugLog;
+  sendClientDebugLog("info", "bootstrap_start");
+
+  let lastTick = performance?.now?.() || Date.now();
+  setInterval(() => {
+    const now = performance?.now?.() || Date.now();
+    const drift = now - lastTick - 1000;
+    lastTick = now;
+    if (drift > 2500) {
+      sendClientDebugLog("warn", "main_thread_stall", {
+        driftMs: Math.round(drift),
+        focusedSelector: document.activeElement?.className || document.activeElement?.tagName || ""
+      });
+    }
+  }, 1000);
 }
 
 function isLowEndDevice() {
@@ -139,7 +218,7 @@ async function shouldShowProfileSelection() {
 async function routeAfterAuthentication() {
   const showProfileSelection = await shouldShowProfileSelection();
   if (showProfileSelection) {
-    Router.navigate("profileSelection");
+    await Router.navigate("profileSelection");
     return;
   }
 
@@ -151,10 +230,58 @@ async function routeAfterAuthentication() {
     await ProfileManager.setActiveProfile(activeProfile.id);
     await ProfileSettingsSyncService.pull(activeProfile.id);
   }
-  Router.navigate("home");
+  await Router.navigate("home");
+}
+
+async function routeSignedOut({ force = false } = {}) {
+  const shouldBypassQr = Boolean(LocalStore.get(GUEST_QR_BYPASS_KEY, false));
+  if (!force && isSignedOutRouteAllowed()) {
+    return;
+  }
+  if (shouldBypassQr) {
+    ProfileManager.clearActiveProfile();
+    if (force || Router.getCurrent() !== "profileSelection") {
+      await Router.navigate("profileSelection", {}, {
+        replaceHistory: true,
+        skipStackPush: true
+      });
+    }
+    return;
+  }
+  const hasSeenQr = LocalStore.get("hasSeenAuthQrOnFirstLaunch");
+  if (force || Router.getCurrent() !== "authQrSignIn") {
+    await Router.navigate("authQrSignIn", {
+      onboardingMode: !hasSeenQr
+    }, force ? {
+      replaceHistory: true,
+      skipStackPush: true
+    } : {});
+  }
+}
+
+async function recoverMissingInitialRoute() {
+  if (Router.getCurrent()) {
+    return;
+  }
+
+  const authState = AuthManager.getAuthState();
+  sendClientDebugLog("warn", "bootstrap_route_missing", {
+    authState,
+    skipAuthQrGate: Boolean(LocalStore.get(GUEST_QR_BYPASS_KEY, false))
+  });
+
+  if (authState === AuthState.AUTHENTICATED) {
+    sendClientDebugLog("warn", "bootstrap_authenticated_route_pending", {
+      currentRoute: Router.getCurrent()
+    });
+    return;
+  }
+
+  await routeSignedOut({ force: true });
 }
 
 async function bootstrapApp() {
+  startClientDebugLogging();
   renderAppShell();
   appShellRendered = true;
   Platform.init();
@@ -171,6 +298,11 @@ async function bootstrapApp() {
   warmStreamingLibs({ delayMs: 1400 });
 
   AuthManager.subscribe((state) => {
+    sendClientDebugLog("info", "auth_state_changed", {
+      state,
+      currentRoute: Router.getCurrent()
+    });
+
     if (state === AuthState.LOADING) {
       StartupSyncService.stop();
       return;
@@ -179,23 +311,10 @@ async function bootstrapApp() {
     if (state === AuthState.SIGNED_OUT) {
       StartupSyncService.stop();
       hasSelectedProfileThisSession = false;
-      const shouldBypassQr = Boolean(LocalStore.get(GUEST_QR_BYPASS_KEY, false));
-      if (isSignedOutRouteAllowed()) {
-        return;
-      }
-      if (shouldBypassQr) {
-        ProfileManager.clearActiveProfile();
-        if (Router.getCurrent() !== "profileSelection") {
-          Router.navigate("profileSelection", {}, {
-            replaceHistory: true,
-            skipStackPush: true
-          });
-        }
-        return;
-      }
-      const hasSeenQr = LocalStore.get("hasSeenAuthQrOnFirstLaunch");
-      Router.navigate("authQrSignIn", {
-        onboardingMode: !hasSeenQr
+      addonRepository.invalidateInstalledAddonsCache();
+      routeSignedOut().catch((error) => {
+        console.warn("Failed to resolve signed-out route", error);
+        sendClientDebugLog("error", "signed_out_route_failed", serializeError(error));
       });
     }
 
@@ -204,17 +323,24 @@ async function bootstrapApp() {
       StartupSyncService.start();
       routeAfterAuthentication().catch((error) => {
         console.warn("Failed to resolve authenticated route", error);
+        sendClientDebugLog("error", "authenticated_route_failed", serializeError(error));
         Router.navigate("profileSelection");
       });
     }
   });
 
   await AuthManager.bootstrap();
+  await recoverMissingInitialRoute();
+  sendClientDebugLog("info", "bootstrap_ready", {
+    currentRoute: Router.getCurrent()
+  });
 }
 
 async function bootstrapAddonRemoteMode() {
+  startClientDebugLogging();
   await renderAddonRemotePage();
   appShellRendered = true;
+  sendClientDebugLog("info", "addon_remote_ready");
 }
 
 if (document.readyState === "loading") {
@@ -222,6 +348,7 @@ if (document.readyState === "loading") {
     const bootstrap = isAddonRemoteMode() ? bootstrapAddonRemoteMode : bootstrapApp;
     bootstrap().catch((error) => {
       console.error("App bootstrap failed", error);
+      sendClientDebugLog("error", "bootstrap_failed", serializeError(error));
       renderFatalError(error);
     });
   }, { once: true });
@@ -229,11 +356,19 @@ if (document.readyState === "loading") {
   const bootstrap = isAddonRemoteMode() ? bootstrapAddonRemoteMode : bootstrapApp;
   bootstrap().catch((error) => {
     console.error("App bootstrap failed", error);
+    sendClientDebugLog("error", "bootstrap_failed", serializeError(error));
     renderFatalError(error);
   });
 }
 
 window.addEventListener("error", (event) => {
+  sendClientDebugLog("error", "window_error", {
+    message: String(event?.message || ""),
+    source: String(event?.filename || ""),
+    line: Number(event?.lineno || 0),
+    column: Number(event?.colno || 0),
+    error: serializeError(event?.error)
+  });
   if (!event?.error) {
     return;
   }
@@ -245,6 +380,7 @@ window.addEventListener("error", (event) => {
 });
 
 window.addEventListener("unhandledrejection", (event) => {
+  sendClientDebugLog("error", "unhandled_rejection", serializeError(event?.reason));
   if (!appShellRendered) {
     renderFatalError(event?.reason);
     return;

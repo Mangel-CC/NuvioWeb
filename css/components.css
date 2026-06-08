@@ -9906,8 +9906,9 @@ button:focus-visible {
 }
 
 .player-controls-top {
-  align-self: flex-end;
-  text-align: right;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
   position: relative;
   z-index: 1;
   color: rgba(245, 249, 255, 0.9);
@@ -9915,14 +9916,51 @@ button:focus-visible {
   transition: opacity 160ms ease;
 }
 
+.player-back-btn {
+  position: relative;
+  z-index: 3;
+  pointer-events: auto;
+  margin-right: auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.player-back-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.1);
+}
+
+.player-back-icon {
+  width: 20px;
+  height: 20px;
+  filter: brightness(0) invert(1);
+}
+
+.player-time-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
 .player-clock {
   font-size: 13px;
   font-weight: 600;
   line-height: 1;
+  text-align: right;
 }
 
 .player-ends-at {
   margin-top: 2px;
+  text-align: right;
   font-size: 10px;
   color: rgba(255, 255, 255, 0.78);
 }
@@ -9968,9 +10006,11 @@ button:focus-visible {
 
 .player-progress-shell {
   width: 100%;
-  padding: 0;
+  padding: 8px 0;
   outline: none;
   margin-top: 12px;
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .player-progress-track {
@@ -10007,6 +10047,54 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.player-volume-control {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  min-width: 158px;
+  pointer-events: auto;
+}
+
+.player-volume-button {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player-volume-button:hover,
+.player-volume-button.is-muted {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.player-volume-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
+  background: currentColor;
+  -webkit-mask: url("../assets/icons/ic_player_volume.svg") center / contain no-repeat;
+  mask: url("../assets/icons/ic_player_volume.svg") center / contain no-repeat;
+}
+
+.player-volume-button.is-muted .player-volume-icon {
+  opacity: 0.55;
+}
+
+.player-volume-slider {
+  width: 112px;
+  accent-color: var(--player-secondary);
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .player-control-btn {
@@ -10623,6 +10711,7 @@ button:focus-visible {
   background: transparent;
   box-sizing: border-box;
   opacity: 1;
+  pointer-events: auto;
   transition: opacity 160ms ease;
 }
 
@@ -10656,11 +10745,37 @@ button:focus-visible {
   background: var(--player-background-elevated);
 }
 
+.player-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
 .player-dialog-title {
   font-size: 28px;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   color: #ffffff;
+}
+
+.player-dialog-close {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.player-dialog-close.focused,
+.player-dialog-close:hover {
+  border-color: var(--player-focus-ring);
+  background: var(--player-focus-background);
 }
 
 .player-dialog-tabs {
@@ -10700,6 +10815,8 @@ button:focus-visible {
   flex-direction: column;
   gap: 6px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   min-height: 0;
   padding-right: 4px;
   scrollbar-width: none;
@@ -10885,6 +11002,8 @@ button:focus-visible {
   flex-direction: column;
   box-sizing: border-box;
   opacity: 1;
+  pointer-events: auto;
+  overflow: hidden;
   transition: opacity 160ms ease;
 }
 
@@ -10977,6 +11096,8 @@ button:focus-visible {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   scrollbar-width: none;
   padding-right: 4px;
 }
@@ -12938,6 +13059,37 @@ button:focus-visible {
   justify-content: flex-end;
   padding: 0 var(--tv-safe-gutter-wide) clamp(20px, 2.2vh, 32px);
   box-sizing: border-box;
+  position: relative;
+}
+
+.detail-back-btn {
+  position: absolute;
+  top: clamp(16px, 2vh, 32px);
+  left: clamp(16px, 2vw, 32px);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: background 0.2s ease, transform 0.15s ease;
+  padding: 0;
+}
+
+.detail-back-btn:hover,
+.detail-back-btn.focused {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.1);
+}
+
+.detail-back-icon {
+  width: 22px;
+  height: 22px;
+  filter: brightness(0) invert(1);
 }
 
 .detail-hero-brand {
@@ -13253,6 +13405,51 @@ button:focus-visible {
   padding-left: var(--tv-safe-gutter-wide);
   padding-right: var(--tv-safe-gutter-wide);
   box-sizing: border-box;
+}
+
+.series-season-row,
+.series-insight-tabs,
+.series-rating-seasons,
+.movie-cast-track,
+.series-cast-track,
+.detail-company-track,
+.detail-morelike-track,
+.detail-comments-modes,
+.detail-comments-track,
+.series-episode-track,
+.series-episode-ratings-grid {
+  cursor: grab;
+  overscroll-behavior-x: contain;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.series-season-row.is-pointer-dragging,
+.series-insight-tabs.is-pointer-dragging,
+.series-rating-seasons.is-pointer-dragging,
+.movie-cast-track.is-pointer-dragging,
+.series-cast-track.is-pointer-dragging,
+.detail-company-track.is-pointer-dragging,
+.detail-morelike-track.is-pointer-dragging,
+.detail-comments-modes.is-pointer-dragging,
+.detail-comments-track.is-pointer-dragging,
+.series-episode-track.is-pointer-dragging,
+.series-episode-ratings-grid.is-pointer-dragging {
+  cursor: grabbing;
+}
+
+.series-season-row img,
+.series-insight-tabs img,
+.series-rating-seasons img,
+.movie-cast-track img,
+.series-cast-track img,
+.detail-company-track img,
+.detail-morelike-track img,
+.detail-comments-modes img,
+.detail-comments-track img,
+.series-episode-track img,
+.series-episode-ratings-grid img {
+  -webkit-user-drag: none;
 }
 
 .series-season-row {
@@ -16248,5 +16445,16 @@ button:focus-visible {
 
   .home-track {
     user-select: none;
+  }
+
+  .player-volume-control {
+    display: inline-flex;
+  }
+
+  .player-back-btn,
+  .player-progress-shell,
+  .player-volume-button,
+  .player-volume-slider {
+    cursor: pointer;
   }
 }

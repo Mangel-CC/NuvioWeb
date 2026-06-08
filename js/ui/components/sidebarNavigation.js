@@ -269,6 +269,7 @@ export function renderRootSidebar({
 export function bindRootSidebarEvents(container, {
   currentRoute = "",
   onExpandSidebar = null,
+  onCollapseSidebar = null,
   onSelectedAction = null
 } = {}) {
   const focusables = Array.from(container?.querySelectorAll(".home-sidebar .focusable, .modern-sidebar-panel .focusable") || []);
@@ -328,6 +329,66 @@ export function bindRootSidebarEvents(container, {
       }
     };
   });
+
+  const sidebarShell = container?.querySelector(".modern-sidebar-shell");
+  const sidebarPanel = container?.querySelector(".modern-sidebar-panel");
+  if (sidebarShell && sidebarPanel && typeof onCollapseSidebar === "function") {
+    if (container._sidebarCollapseHandler) {
+      document.removeEventListener("mousemove", container._sidebarCollapseHandler);
+      document.removeEventListener("pointermove", container._sidebarCollapseHandler);
+    }
+    if (container._sidebarOutsideClickHandler) {
+      document.removeEventListener("pointerdown", container._sidebarOutsideClickHandler, true);
+      document.removeEventListener("click", container._sidebarOutsideClickHandler, true);
+    }
+    if (container._sidebarCollapseTimer) {
+      clearTimeout(container._sidebarCollapseTimer);
+      container._sidebarCollapseTimer = null;
+    }
+    container._sidebarCollapseHandler = (e) => {
+      if (!sidebarShell.isConnected || !sidebarShell.classList.contains("expanded")) {
+        if (container._sidebarCollapseTimer) {
+          clearTimeout(container._sidebarCollapseTimer);
+          container._sidebarCollapseTimer = null;
+        }
+        return;
+      }
+      const inside = sidebarPanel.contains(e.target)
+        || e.target?.closest?.(".modern-sidebar-pill");
+      if (inside) {
+        if (container._sidebarCollapseTimer) {
+          clearTimeout(container._sidebarCollapseTimer);
+          container._sidebarCollapseTimer = null;
+        }
+      } else if (!container._sidebarCollapseTimer) {
+        container._sidebarCollapseTimer = setTimeout(() => {
+          container._sidebarCollapseTimer = null;
+          if (sidebarShell.isConnected && sidebarShell.classList.contains("expanded")) {
+            onCollapseSidebar();
+          }
+        }, 300);
+      }
+    };
+    document.addEventListener("mousemove", container._sidebarCollapseHandler);
+    document.addEventListener("pointermove", container._sidebarCollapseHandler);
+
+    container._sidebarOutsideClickHandler = (e) => {
+      if (!sidebarShell.isConnected || !sidebarShell.classList.contains("expanded")) {
+        return;
+      }
+      const inside = sidebarPanel.contains(e.target)
+        || e.target?.closest?.(".modern-sidebar-pill");
+      if (!inside) {
+        if (container._sidebarCollapseTimer) {
+          clearTimeout(container._sidebarCollapseTimer);
+          container._sidebarCollapseTimer = null;
+        }
+        onCollapseSidebar();
+      }
+    };
+    document.addEventListener("pointerdown", container._sidebarOutsideClickHandler, true);
+    document.addEventListener("click", container._sidebarOutsideClickHandler, true);
+  }
 }
 
 export function setLegacySidebarExpanded(container, expanded) {

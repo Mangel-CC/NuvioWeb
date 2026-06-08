@@ -1,5 +1,6 @@
 import { AuthState } from "./authState.js";
 import { SessionStore } from "../storage/sessionStore.js";
+import { LocalStore } from "../storage/localStore.js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../../config.js";
 
 function isJwtLike(token) {
@@ -126,7 +127,7 @@ class AuthManagerClass {
   }
 
   async signOut() {
-    SessionStore.clear();
+    LocalStore.clear();
     this.cachedEffectiveUserId = null;
     this.cachedEffectiveUserSourceUserId = null;
     this.setState(AuthState.SIGNED_OUT);

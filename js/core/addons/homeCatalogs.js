@@ -27,7 +27,7 @@ export function buildOrderedCatalogItems(addons, savedOrderKeys = [], disabledKe
 
   (addons || []).forEach((addon) => {
     (addon.catalogs || [])
-      .filter((catalog) => !isSearchOnlyCatalog(catalog))
+      .filter((catalog) => !isSearchOnlyCatalog(catalog) && catalog.showInHome !== false)
       .forEach((catalog) => {
         const key = buildCatalogOrderKey(addon.id, catalog.apiType, catalog.id);
         if (seenKeys.has(key)) {

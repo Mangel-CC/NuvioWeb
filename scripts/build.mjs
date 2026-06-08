@@ -18,21 +18,60 @@ const cacheDir = path.join(rootDir, ".cache");
 const bundleFileName = "app.bundle.js";
 const tempBundlePath = path.join(cacheDir, "__app.bundle.build.js");
 
-const defaultEnvFileContents = `(function defineNuvioEnv() {
+const runtimeEnvDefaults = {
+  SUPABASE_URL: "",
+  SUPABASE_ANON_KEY: "",
+  TV_LOGIN_REDIRECT_BASE_URL: "",
+  PUBLIC_APP_URL: "",
+  YOUTUBE_PROXY_URL: "youtube-proxy.html",
+  PARENTAL_GUIDE_API_URL: "",
+  INTRODB_API_URL: "",
+  IMDB_RATINGS_API_BASE_URL: "",
+  AVATAR_PUBLIC_BASE_URL: "",
+  CONTRIBUTIONS_URL: "",
+  DONATIONS_BASE_URL: "",
+  DONATIONS_DONATE_URL: "",
+  ADDON_REMOTE_BASE_URL: "",
+  WEBOS_SERVICE_ID: "",
+  ENABLE_REMOTE_WRAPPER_MODE: false,
+  PREFERRED_PLAYBACK_ORDER: ["native-hls", "hls.js", "dash.js", "native-file", "platform-avplay"],
+  TMDB_API_KEY: "",
+  TRAKT_CLIENT_ID: "",
+  TRAKT_CLIENT_SECRET: "",
+  TRAKT_API_URL: "https://api.trakt.tv",
+  TRAKT_REDIRECT_URI: "urn:ietf:wg:oauth:2.0:oob"
+};
+
+function parseBooleanEnv(value, fallback = false) {
+  if (typeof value === "undefined") {
+    return fallback;
+  }
+  return ["1", "true", "yes", "on"].includes(String(value || "").trim().toLowerCase());
+}
+
+function createDefaultEnvFileContents() {
+  const env = {};
+  Object.entries(runtimeEnvDefaults).forEach(([key, fallback]) => {
+    if (key === "ENABLE_REMOTE_WRAPPER_MODE") {
+      env[key] = parseBooleanEnv(process.env[key], Boolean(fallback));
+      return;
+    }
+    if (key === "PREFERRED_PLAYBACK_ORDER") {
+      const raw = String(process.env[key] || "").trim();
+      env[key] = raw
+        ? raw.split(",").map((entry) => entry.trim()).filter(Boolean)
+        : fallback;
+      return;
+    }
+    env[key] = typeof process.env[key] === "undefined" ? fallback : String(process.env[key] || "");
+  });
+
+  return `(function defineNuvioEnv() {
   var root = typeof globalThis !== "undefined" ? globalThis : window;
-  root.__NUVIO_ENV__ = {
-    SUPABASE_URL: "",
-    SUPABASE_ANON_KEY: "",
-    TV_LOGIN_REDIRECT_BASE_URL: "",
-    YOUTUBE_PROXY_URL: "youtube-proxy.html",
-    ADDON_REMOTE_BASE_URL: "",
-    WEBOS_SERVICE_ID: "",
-    ENABLE_REMOTE_WRAPPER_MODE: false,
-    PREFERRED_PLAYBACK_ORDER: ["native-hls", "hls.js", "dash.js", "native-file", "platform-avplay"],
-    TMDB_API_KEY: ""
-  };
+  root.__NUVIO_ENV__ = ${JSON.stringify(env, null, 4)};
 }());
 `;
+}
 
 async function buildCSS() {
   console.log("processing CSS with PostCSS (legacy support)...");
@@ -57,7 +96,7 @@ async function buildCSS() {
   }
 }
 
-async function copyOptionalRootFile(fileName, { fallback = null, defaultContents = defaultEnvFileContents } = {}) {
+async function copyOptionalRootFile(fileName, { fallback = null, defaultContents = createDefaultEnvFileContents } = {}) {
   const targetPath = path.join(distDir, fileName);
   try {
     await cp(path.join(rootDir, fileName), targetPath);
@@ -81,7 +120,8 @@ async function copyOptionalRootFile(fileName, { fallback = null, defaultContents
     }
   }
 
-  await writeFile(targetPath, defaultContents, "utf8");
+  const contents = typeof defaultContents === "function" ? defaultContents() : defaultContents;
+  await writeFile(targetPath, contents, "utf8");
   return "generated-default";
 }
 
@@ -146,6 +186,14 @@ async function buildBundle() {
   await rm(tempBundlePath).catch(() => { });
   console.log("bundle build complete");
 }
+
+function withBuildAssetVersion(html, version) {
+  const safeVersion = encodeURIComponent(String(version || "0.0.0"));
+  return String(html || "")
+    .replace(/(href="css\/[^"]+?\.css)(?:\?v=[^"]*)?"/g, `$1?v=${safeVersion}"`)
+    .replace(/(src="app\.bundle\.js)(?:\?v=[^"]*)?"/g, `$1?v=${safeVersion}"`);
+}
+
 async function runBuild() {
   try {
     console.log("cleaning dist directory...");
@@ -153,7 +201,7 @@ async function runBuild() {
     await mkdir(distDir, { recursive: true });
     
     console.log("building version files...");
-    await syncVersionFiles();
+    const version = await syncVersionFiles();
     await buildCSS();
 
     console.log("copying static assets...");
@@ -172,7 +220,7 @@ async function runBuild() {
     await buildBundle();
 
     const sourceIndex = await readFile(path.join(rootDir, "index.html"), "utf8");
-    await writeFile(path.join(distDir, "index.html"), sourceIndex);
+    await writeFile(path.join(distDir, "index.html"), withBuildAssetVersion(sourceIndex, version));
 
     // Copy deployment extras (service worker + Vercel headers config)
     await Promise.all([

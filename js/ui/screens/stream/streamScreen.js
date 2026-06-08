@@ -1490,8 +1490,12 @@ export const StreamScreen = {
       body = `<div class="stream-route-empty">No sources found for this filter.</div>`;
     }
 
+    const backBtn = Environment.isBrowser()
+      ? `<button class="detail-back-btn focusable" data-action="goBack" aria-label="${escapeHtml(t("common.back", {}, "Back"))}"><img class="detail-back-icon" src="assets/icons/ic_back_arrow.svg" alt="" aria-hidden="true" /></button>`
+      : "";
     this.container.innerHTML = `
       <div class="stream-route-shell">
+        ${backBtn}
         <div class="stream-route-backdrop"${backdrop ? ` style="background-image:url('${String(backdrop).replace(/'/g, "%27")}')"` : ""}></div>
         <div class="stream-route-backdrop-dim"></div>
         <div class="stream-route-left-gradient"></div>
@@ -1662,6 +1666,12 @@ export const StreamScreen = {
     }
     this.onPointerFocus(target);
     const action = String(target.dataset.action || "");
+    if (action === "goBack") {
+      if (!this.navigateBackFromStream()) {
+        Router.back();
+      }
+      return true;
+    }
     if (action === "setFilter") {
       const addon = String(target.dataset.addon || "all");
       const { chips } = this.getFocusLists();

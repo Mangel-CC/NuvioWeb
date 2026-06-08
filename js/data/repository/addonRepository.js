@@ -368,6 +368,7 @@ class AddonRepository {
       id: catalog.id,
       name: catalog.name || catalog.id,
       apiType: (catalog.type || "").trim(),
+      showInHome: catalog.showInHome !== false,
       extra: Array.isArray(catalog.extra)
         ? catalog.extra.map((entry) => ({
           name: entry.name,

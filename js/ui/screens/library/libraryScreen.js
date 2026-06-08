@@ -488,6 +488,7 @@ export const LibraryScreen = {
     bindRootSidebarEvents(this.container, {
       currentRoute: "library",
       onSelectedAction: () => this.focusMainNode(null, { preferEntryPoint: true }),
+      onCollapseSidebar: () => this.focusMainNode(null, { preferEntryPoint: true }),
       onExpandSidebar: () => this.focusSidebarNode()
     });
 
@@ -751,6 +752,7 @@ export const LibraryScreen = {
     bindRootSidebarEvents(this.container, {
       currentRoute: "library",
       onSelectedAction: () => this.focusMainNode(null, { preferEntryPoint: true }),
+      onCollapseSidebar: () => this.focusMainNode(null, { preferEntryPoint: true }),
       onExpandSidebar: () => this.focusSidebarNode()
     });
     this.restoreFocus();

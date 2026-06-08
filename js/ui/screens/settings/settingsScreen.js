@@ -2088,6 +2088,9 @@ export const SettingsScreen = {
     this.actionMap.set("layout:searchDiscover", () => {
       LayoutPreferences.set({ searchDiscoverEnabled: !LayoutPreferences.get().searchDiscoverEnabled });
     });
+    this.actionMap.set("layout:catalogOrder", () => {
+      Router.navigate("catalogOrder");
+    });
     this.actionMap.set("layout:hideUnreleased", () => {
       LayoutPreferences.set({ hideUnreleasedContent: !LayoutPreferences.get().hideUnreleasedContent });
     });
@@ -2239,6 +2242,12 @@ export const SettingsScreen = {
       title: t("settings.layout.searchDiscover.title"),
       subtitle: t("settings.layout.searchDiscover.subtitle"),
       checked: Boolean(model.layout.searchDiscoverEnabled)
+    })}
+        ${this.renderActionRow({
+      focusKey: "layout:catalogOrder",
+      title: t("settings.layout.catalogOrder.title", {}, "Home Rows"),
+      subtitle: t("settings.layout.catalogOrder.subtitle", {}, "Choose, reorder, enable, or hide the addon rows shown on Home."),
+      value: t("common.manage", {}, "Manage")
     })}
         ${!isModernLayout ? this.renderToggleRow({
       focusKey: "layout:posterLabels",
@@ -3792,6 +3801,7 @@ export const SettingsScreen = {
     bindRootSidebarEvents(this.container, {
       currentRoute: "settings",
       onSelectedAction: () => this.closeSidebarToNav(),
+      onCollapseSidebar: () => this.closeSidebarToNav(),
       onExpandSidebar: () => this.openSidebar()
     });
     ScreenUtils.indexFocusables(this.container);
